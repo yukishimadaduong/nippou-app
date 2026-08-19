@@ -468,42 +468,82 @@ async function loadGoalsForMonth(key){
 
 let usingDataJson = false;
 
-async function tryLoadDataJson(){
-  if(hasCloudStorage) return false;
+async function fetchDataJson(){
+  if(hasCloudStorage) return null;
   try{
     const res = await fetch('data.json', {cache:'no-store'});
-    if(!res.ok) return false;
-    const data = await res.json();
-    let applied = false;
-    if(data.members && Array.isArray(data.members) && data.members.length){
-      members = data.members;
-      applied = true;
-    }
-    if(data.goalsMap && typeof data.goalsMap === 'object'){
-      goalsMap = data.goalsMap;
-      applied = true;
-    }
-    if(applied) usingDataJson = true;
-    return applied;
-  }catch(e){ return false; }
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ return null; }
+}
+
+function namesOf(list){ return (list || []).map(m => m.name); }
+
+// data.jsonの内容（島田さんが決めた「誰がメンバーか」）と、
+// この端末のローカルなカスタマイズ（絵文字・並び順・個人的な削除）を差分マージする。
+// 前回読み込んだ時のメンバー名一覧（スナップショット）と今回を比べて、
+// 島田さんが追加/削除した人だけを反映し、それ以外は本人のカスタマイズをそのまま残す。
+async function mergeMembersWithLocal(canonicalMembers){
+  let local = [];
+  try{
+    const m = await storage.get('members');
+    local = (m && m.value) ? JSON.parse(m.value) : [];
+  }catch(e){ local = []; }
+
+  let snapshot = null;
+  try{
+    const s = await storage.get('canon-snapshot');
+    snapshot = (s && s.value) ? JSON.parse(s.value) : null;
+  }catch(e){ snapshot = null; }
+
+  let merged;
+  if(!local.length || !snapshot){
+    // 初回：data.jsonの内容をそのまま採用
+    merged = canonicalMembers.map(m => ({ emoji: m.emoji || '', name: m.name }));
+  } else {
+    const newNames = namesOf(canonicalMembers);
+    const added = newNames.filter(n => !snapshot.includes(n));
+    const removed = snapshot.filter(n => !newNames.includes(n));
+    merged = local.filter(m => !removed.includes(m.name));
+    added.forEach(n=>{
+      const c = canonicalMembers.find(m=>m.name === n);
+      merged.push({ emoji: (c && c.emoji) || '', name: n });
+    });
+  }
+
+  try{
+    await storage.set('canon-snapshot', JSON.stringify(namesOf(canonicalMembers)));
+    await storage.set('members', JSON.stringify(merged));
+  }catch(e){}
+
+  return merged;
 }
 
 async function loadState(){
   $('date').value = todayISO();
 
-  const gotJson = await tryLoadDataJson();
+  const jsonData = await fetchDataJson();
 
-  if(!gotJson || !members || !members.length){
+  if(jsonData && jsonData.members && Array.isArray(jsonData.members) && jsonData.members.length){
+    usingDataJson = true;
+    members = await mergeMembersWithLocal(jsonData.members);
+    if(jsonData.goalsMap && typeof jsonData.goalsMap === 'object'){
+      goalsMap = jsonData.goalsMap;
+    } else {
+      goalsMap = {};
+    }
+  } else {
     try{
       const mem = await storage.get('members', true);
       members = (mem && mem.value) ? JSON.parse(mem.value) : defaultMembers();
-      if(!members.length) members = defaultMembers();
     }catch(e){ members = defaultMembers(); }
   }
+  if(!members || !members.length) members = defaultMembers();
+
   renderMemberRows();
   refreshNameSelect();
   if(usingDataJson){
-    $('memberList').insertAdjacentHTML('beforebegin', '<p class="hint" style="color:var(--indigo);margin-bottom:8px;">data.json から読み込み中です。ここでの変更はこの端末だけの一時的なプレビューで、次に開いたときは data.json の内容に戻ります。全員に反映したい場合はGitHub上でdata.jsonを直接編集してください。</p>');
+    $('memberList').insertAdjacentHTML('beforebegin', '<p class="hint" style="color:var(--indigo);margin-bottom:8px;">data.json と連携中です。島田さんが追加・削除した人はここにも反映されますが、絵文字や並び順はこの端末に残ります。</p>');
   }
 
   let lastName = '';
