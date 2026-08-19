@@ -466,16 +466,45 @@ async function loadGoalsForMonth(key){
   $('goals').value = goalsMap[key] || '';
 }
 
+let usingDataJson = false;
+
+async function tryLoadDataJson(){
+  if(hasCloudStorage) return false;
+  try{
+    const res = await fetch('data.json', {cache:'no-store'});
+    if(!res.ok) return false;
+    const data = await res.json();
+    let applied = false;
+    if(data.members && Array.isArray(data.members) && data.members.length){
+      members = data.members;
+      applied = true;
+    }
+    if(data.goalsMap && typeof data.goalsMap === 'object'){
+      goalsMap = data.goalsMap;
+      applied = true;
+    }
+    if(applied) usingDataJson = true;
+    return applied;
+  }catch(e){ return false; }
+}
+
 async function loadState(){
   $('date').value = todayISO();
 
-  try{
-    const mem = await storage.get('members', true);
-    members = (mem && mem.value) ? JSON.parse(mem.value) : defaultMembers();
-    if(!members.length) members = defaultMembers();
-  }catch(e){ members = defaultMembers(); }
+  const gotJson = await tryLoadDataJson();
+
+  if(!gotJson || !members || !members.length){
+    try{
+      const mem = await storage.get('members', true);
+      members = (mem && mem.value) ? JSON.parse(mem.value) : defaultMembers();
+      if(!members.length) members = defaultMembers();
+    }catch(e){ members = defaultMembers(); }
+  }
   renderMemberRows();
   refreshNameSelect();
+  if(usingDataJson){
+    $('memberList').insertAdjacentHTML('beforebegin', '<p class="hint" style="color:var(--indigo);margin-bottom:8px;">data.json から読み込み中です。ここでの変更はこの端末だけの一時的なプレビューで、次に開いたときは data.json の内容に戻ります。全員に反映したい場合はGitHub上でdata.jsonを直接編集してください。</p>');
+  }
 
   let lastName = '';
   try{
@@ -486,10 +515,13 @@ async function loadState(){
   updateStamp();
   $('name').addEventListener('change', updateStamp);
 
-  try{
-    const g = await storage.get('goals-map', true);
-    goalsMap = (g && g.value) ? JSON.parse(g.value) : {};
-  }catch(e){ goalsMap = {}; }
+  if(!usingDataJson){
+    try{
+      const g = await storage.get('goals-map', true);
+      goalsMap = (g && g.value) ? JSON.parse(g.value) : {};
+    }catch(e){ goalsMap = {}; }
+  }
+  if(!goalsMap) goalsMap = {};
 
   let lastMonth = null;
   try{
@@ -500,7 +532,7 @@ async function loadState(){
   populateMonthSelect(lastMonth);
 
   const nowKey = monthKey(new Date().getFullYear(), new Date().getMonth()+1);
-  if(!goalsMap[nowKey]){
+  if(!goalsMap[nowKey] && !usingDataJson){
     goalsMap[nowKey] = '・秋冬グランドに向けての準備\n・次回フェア準備\n・新体制の安定運営';
     try{ await storage.set('goals-map', JSON.stringify(goalsMap), true); }catch(e){}
   }
