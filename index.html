@@ -24,6 +24,8 @@
   .masthead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px double var(--ink);padding-bottom:10px;margin-bottom:18px;}
   .masthead h1{font-family:'Shippori Mincho',serif;font-weight:700;font-size:22px;margin:0;letter-spacing:.05em;}
   .masthead .sub{font-size:11px;color:var(--ink-soft);letter-spacing:.1em;}
+  .dept-select{font-size:11px;color:var(--ink-soft);letter-spacing:.05em;background:none;border:none;padding:2px 0;font-family:inherit;-webkit-appearance:none;appearance:none;}
+  .dept-select:focus{outline:none;color:var(--indigo);}
   .stamp{width:46px;height:46px;border-radius:50%;border:2px solid var(--shu);color:var(--shu);display:flex;align-items:center;justify-content:center;font-family:'Shippori Mincho',serif;font-weight:700;font-size:15px;flex-shrink:0;transform:rotate(-6deg);}
   .card{background:var(--paper2);border:1px solid var(--line);border-radius:2px;padding:14px 14px 16px;margin-bottom:14px;position:relative;}
   .eyebrow{font-family:'Shippori Mincho',serif;font-weight:700;font-size:14px;color:var(--indigo);display:flex;align-items:center;gap:6px;margin:0 0 10px;}
@@ -67,7 +69,9 @@
   <div class="masthead">
     <div>
       <h1>日報帳</h1>
-      <div class="sub">メニュー開発課</div>
+      <select id="dept" class="dept-select">
+        <option value="メニュー開発課">メニュー開発課</option>
+      </select>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <button id="clearBtnTop" type="button" style="background:var(--shu);border:none;color:#F4EDDC;font-family:inherit;font-weight:700;font-size:13px;padding:9px 14px;border-radius:2px;white-space:nowrap;display:flex;align-items:center;gap:5px;">🗑 クリア</button>
@@ -186,6 +190,17 @@ function escapeHtml(s){
 
 function defaultMembers(){
   return ['島田','穐吉','樂','上田','劉','和唐'].map(name=>({emoji:'', name}));
+}
+
+function defaultDepartments(){
+  return ['メニュー開発課','販促企画課','海外開発室','商品企画開発部'];
+}
+
+function renderDeptOptions(depts){
+  const sel = $('dept');
+  const prev = sel.value;
+  sel.innerHTML = depts.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+  if(depts.includes(prev)) sel.value = prev;
 }
 
 let members = [];
@@ -558,6 +573,28 @@ async function loadState(){
   updateStamp();
   $('name').addEventListener('change', updateStamp);
 
+  // 部署名リスト：GitHub版はdata.json、Claude版は共有ストレージから
+  let depts = defaultDepartments();
+  if(jsonData && jsonData.departments && Array.isArray(jsonData.departments) && jsonData.departments.length){
+    depts = jsonData.departments;
+  } else if(!usingDataJson){
+    try{
+      const d = await storage.get('departments', true);
+      depts = (d && d.value) ? JSON.parse(d.value) : defaultDepartments();
+      if(!depts.length) depts = defaultDepartments();
+    }catch(e){ depts = defaultDepartments(); }
+  }
+  renderDeptOptions(depts);
+  let lastDept = '';
+  try{
+    const ld = await storage.get('last-dept');
+    if(ld && ld.value){ lastDept = ld.value; }
+  }catch(e){}
+  if(lastDept && depts.includes(lastDept)){ $('dept').value = lastDept; }
+  $('dept').addEventListener('change', async ()=>{
+    try{ await storage.set('last-dept', $('dept').value); }catch(e){}
+  });
+
   if(!usingDataJson){
     try{
       const g = await storage.get('goals-map', true);
@@ -610,6 +647,7 @@ async function persistGoalsMap(){
 async function saveState(){
   try{
     await storage.set('last-name', $('name').value);
+    await storage.set('last-dept', $('dept').value);
   }catch(e){}
   await persistGoalsMap();
   await saveDraft();
@@ -619,6 +657,7 @@ function buildReport(){
   const dateVal = $('date').value ? new Date($('date').value+'T00:00:00') : new Date();
   const md = `${dateVal.getMonth()+1}/${dateVal.getDate()}（${weekdayJP(dateVal)}）`;
   const name = $('name').value.trim() || '島田';
+  const dept = $('dept').value.trim() || 'メニュー開発課';
 
   const taskEls = Array.from(document.querySelectorAll('#tasks .task-item'));
   const tasks = taskEls.map(el=>{
@@ -653,7 +692,7 @@ function buildReport(){
   const sep = '────────────────';
 
   let out = '';
-  out += `【所属】メニュー開発課　${name}\n`;
+  out += `【所属】${dept}　${name}\n`;
   out += `${md} \n`;
   out += `①進行中の案件\n`;
   out += `★今月の目標数値と進捗：\n`;
