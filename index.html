@@ -462,8 +462,11 @@ function populateMonthSelect(selected){
 
 let goalsMap = {};
 
+let currentGoalsMonthKey = null;
+
 async function loadGoalsForMonth(key){
   $('goals').value = goalsMap[key] || '';
+  currentGoalsMonthKey = key;
 }
 
 let usingDataJson = false;
@@ -580,16 +583,23 @@ async function loadState(){
   await loadGoalsForMonth($('goalsMonth').value);
 
   $('goalsMonth').addEventListener('change', async ()=>{
-    // 切り替え前に編集中の内容を保存
-    await persistGoalsMap();
+    // 切り替え前に表示していた月（currentGoalsMonthKey）へ、編集中の内容を保存
+    if(currentGoalsMonthKey){
+      goalsMap[currentGoalsMonthKey] = $('goals').value;
+      try{
+        await storage.set('goals-map', JSON.stringify(goalsMap), true);
+        await storage.set('last-month', currentGoalsMonthKey);
+      }catch(e){}
+    }
     await loadGoalsForMonth($('goalsMonth').value);
+    try{ await storage.set('last-month', $('goalsMonth').value); }catch(e){}
   });
 
   if(!document.querySelectorAll('.task-item').length){ await loadDraft(); }
 }
 
 async function persistGoalsMap(){
-  const key = $('goalsMonth').value;
+  const key = currentGoalsMonthKey || $('goalsMonth').value;
   goalsMap[key] = $('goals').value;
   try{
     await storage.set('goals-map', JSON.stringify(goalsMap), true);
