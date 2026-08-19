@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日報作成</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4EDDC;
+    --paper2:#EBE1CB;
+    --ink:#2B2A28;
+    --ink-soft:#6B6558;
+    --indigo:#26415E;
+    --indigo-soft:#4C6483;
+    --shu:#B23A2E;
+    --line:#C9C0A6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;}
+  .wrap{max-width:520px;margin:0 auto;padding:20px 16px 60px;}
+  .masthead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px double var(--ink);padding-bottom:10px;margin-bottom:18px;}
+  .masthead h1{font-family:'Shippori Mincho',serif;font-weight:700;font-size:22px;margin:0;letter-spacing:.05em;}
+  .masthead .sub{font-size:11px;color:var(--ink-soft);letter-spacing:.1em;}
+  .stamp{width:46px;height:46px;border-radius:50%;border:2px solid var(--shu);color:var(--shu);display:flex;align-items:center;justify-content:center;font-family:'Shippori Mincho',serif;font-weight:700;font-size:15px;flex-shrink:0;transform:rotate(-6deg);}
+  .card{background:var(--paper2);border:1px solid var(--line);border-radius:2px;padding:14px 14px 16px;margin-bottom:14px;position:relative;}
+  .eyebrow{font-family:'Shippori Mincho',serif;font-weight:700;font-size:14px;color:var(--indigo);display:flex;align-items:center;gap:6px;margin:0 0 10px;}
+  .eyebrow .mark{color:var(--shu);}
+  label{display:block;font-size:11px;color:var(--ink-soft);margin:10px 0 4px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], input[type=date], input[type=number], textarea, select{
+    width:100%;background:var(--paper);border:1px solid var(--line);border-radius:2px;
+    padding:8px 9px;font-family:inherit;font-size:14px;color:var(--ink);resize:vertical;
+  }
+  input:focus, textarea:focus, select:focus{outline:none;border-color:var(--indigo);}
+  textarea{min-height:64px;line-height:1.6;}
+  .row{display:flex;gap:8px;align-items:flex-end;}
+  .row .grow{flex:1;}
+  .row .hrs{width:64px;}
+  .task-item{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px;}
+  .task-item:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .rm{background:none;border:1px solid var(--line);color:var(--ink-soft);font-size:11px;padding:5px 9px;border-radius:2px;cursor:pointer;white-space:nowrap;}
+  .rm:active{transform:scale(.96);}
+  .add-btn{width:100%;background:none;border:1px dashed var(--indigo-soft);color:var(--indigo);font-family:inherit;font-size:13px;padding:8px;border-radius:2px;margin-top:10px;cursor:pointer;}
+  .add-btn:active{background:rgba(38,65,94,.08);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .chip{font-size:12px;border:1px solid var(--indigo-soft);color:var(--indigo);background:var(--paper);padding:4px 10px;border-radius:12px;cursor:pointer;}
+  .chip:active{background:rgba(38,65,94,.1);}
+  .total{font-size:13px;color:var(--indigo);font-weight:500;text-align:right;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+  .stamp-btn{width:100%;background:var(--indigo);color:#F4EDDC;font-family:'Shippori Mincho',serif;font-weight:700;font-size:15px;letter-spacing:.1em;padding:12px;border:none;border-radius:2px;cursor:pointer;margin-top:6px;}
+  .stamp-btn:active{transform:scale(.99);}
+  .out-wrap{margin-top:18px;}
+  .out-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .out-head h2{font-family:'Shippori Mincho',serif;font-size:15px;font-weight:700;margin:0;}
+  .copy-btn{background:var(--shu);color:#F4EDDC;border:none;border-radius:2px;padding:7px 14px;font-family:inherit;font-size:13px;cursor:pointer;}
+  .copy-btn:active{transform:scale(.97);}
+  .copy-btn.copied{background:var(--indigo);}
+  pre.out{background:var(--paper2);border:1px solid var(--line);border-radius:2px;padding:14px;font-family:inherit;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;margin:0;}
+  .hint{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+  .err{font-size:12px;color:var(--shu);margin-top:6px;display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <h1>日報帳</h1>
+      <div class="sub">メニュー開発課</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="clearBtnTop" type="button" style="background:var(--shu);border:none;color:#F4EDDC;font-family:inherit;font-weight:700;font-size:13px;padding:9px 14px;border-radius:2px;white-space:nowrap;display:flex;align-items:center;gap:5px;">🗑 クリア</button>
+      <div class="stamp" id="stamp">島田</div>
+    </div>
+  </div>
+
+  <div id="clearOverlay" style="display:none;position:fixed;inset:0;background:rgba(43,42,40,.55);z-index:50;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--paper);border:1px solid var(--line);border-radius:4px;max-width:340px;width:100%;padding:20px;">
+      <p style="font-family:'Shippori Mincho',serif;font-weight:700;font-size:15px;margin:0 0 10px;">クリアしますか？</p>
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6;margin:0 0 16px;">本日の業務・コメント・サンクスの内容がすべて消えます（あなたの端末の下書きのみが対象です）。</p>
+      <div style="display:flex;gap:8px;">
+        <button id="clearCancel" type="button" style="flex:1;background:var(--paper2);border:1px solid var(--line);color:var(--ink);font-family:inherit;font-size:13px;padding:10px;border-radius:2px;">キャンセル</button>
+        <button id="clearConfirm" type="button" style="flex:1;background:var(--shu);border:none;color:#F4EDDC;font-family:inherit;font-weight:700;font-size:13px;padding:10px;border-radius:2px;">消す</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">◆</span>基本情報</p>
+    <label>日付</label>
+    <input type="date" id="date">
+    <label>氏名</label>
+    <select id="name"></select>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">◆</span>メンバー管理</p>
+    <div id="memberList"></div>
+    <button class="add-btn" id="addMember" type="button">＋ メンバーを追加</button>
+    <p class="hint">左端の「⋮⋮」を押したまま上下にドラッグすると並び順を変えられます。追加・削除・名前の変更・並び順は氏名欄とサンクス欄の両方に反映され、部員全員に共有されます。絵文字を付けたい人だけ左の欄に入力してください（空欄でもOK）。</p>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">★</span>今月の目標数値と進捗</p>
+    <label>対象月</label>
+    <select id="goalsMonth"></select>
+    <label>内容</label>
+    <textarea id="goals" placeholder="・秋冬グランドに向けての準備&#10;・次回フェア準備&#10;・新体制の安定運営"></textarea>
+    <p class="hint">月ごとに保存されます。公開リンクから開いている場合、この内容は部員全員に共有されます（島田が書いた内容が全員の画面に反映されます）。</p>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">◆</span>本日の業務</p>
+    <div id="tasks"></div>
+    <div class="total" id="taskTotal"></div>
+    <button class="add-btn" id="addTask" type="button">＋ 業務を追加</button>
+    <p class="hint">書きかけの内容はこの端末に自動保存され、閉じてもまた開けば続きから書けます。</p>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">②</span>今日のコメント</p>
+    <textarea id="comment" placeholder="今日の振り返りを書いてください"></textarea>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow"><span class="mark">③</span>今日のサンクス</p>
+    <div id="thanksList"></div>
+    <button class="add-btn" id="addThanks" type="button">＋ お礼を追加</button>
+  </div>
+
+  <button class="stamp-btn" id="buildBtn" type="button">日報を組み立てる</button>
+  <p class="err" id="buildErr">業務を1件以上入力してください。</p>
+
+  <div class="out-wrap" id="outWrap" style="display:none;">
+    <div class="out-head">
+      <h2>コピー用テキスト</h2>
+      <button class="copy-btn" id="copyBtn" type="button">コピー</button>
+    </div>
+    <pre class="out" id="out"></pre>
+    <button class="stamp-btn" id="lineBtn" type="button" style="margin-top:12px;background:#06C755;">LINEで送る先を選ぶ</button>
+    <p class="hint" id="lineHint">LINEアプリが開くので、送信先のグループをタップしてください（グループへの自動送信はLINEの仕様上できません。文章は自動で入力されます）。</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let taskSeq = 0, thanksSeq = 0;
+
+// Claude上で「公開」したリンクから開いた場合は、目標欄をwindow.storageの共有機能で
+// 全員に同期します。単体でダウンロードして開いた場合は、この端末のブラウザだけに保存されます。
+const hasCloudStorage = !!(window.storage && window.storage.get && window.storage.set);
+
+const storage = {
+  async get(key, shared){
+    if(hasCloudStorage){
+      try{ return await window.storage.get(key, !!shared); }catch(e){ return null; }
+    }
+    const v = localStorage.getItem('nippou:' + key);
+    return v === null ? null : { value: v };
+  },
+  async set(key, value, shared){
+    if(hasCloudStorage){
+      try{ return await window.storage.set(key, value, !!shared); }catch(e){ return null; }
+    }
+    localStorage.setItem('nippou:' + key, value);
+    return { value };
+  }
+};
+
+function weekdayJP(d){
+  return ['日','月','火','水','木','金','土'][d.getDay()];
+}
+
+function todayISO(){
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off*60000);
+  return local.toISOString().slice(0,10);
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function defaultMembers(){
+  return ['島田','穐吉','樂','上田','劉','和唐'].map(name=>({emoji:'', name}));
+}
+
+let members = [];
+
+function memberOptionsHTML(){
+  return members.filter(m=>m.name.trim()).map(m=>{
+    const label = (m.emoji ? m.emoji + ' ' : '') + m.name;
+    return `<option value="${escapeHtml(m.name)}">${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function thanksOptionsHTML(){
+  const opts = members.filter(m=>m.name.trim()).map(m=>{
+    const label = (m.emoji ? m.emoji + ' ' : '') + m.name + 'さん';
+    return `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`;
+  }).join('');
+  return opts + '<option value="__other__">その他</option>';
+}
+
+function refreshNameSelect(){
+  const sel = $('name');
+  const prev = sel.value;
+  sel.innerHTML = memberOptionsHTML();
+  if(members.some(m=>m.name === prev)){
+    sel.value = prev;
+  } else if(sel.options.length){
+    sel.value = sel.options[0].value;
+  }
+  updateStamp();
+}
+
+function refreshAllThanksSelects(){
+  document.querySelectorAll('.thx-select').forEach(sel=>{
+    const prev = sel.value;
+    sel.innerHTML = thanksOptionsHTML();
+    const found = Array.from(sel.options).some(o=>o.value === prev);
+    sel.value = found ? prev : '__other__';
+    const otherInput = sel.closest('.task-item').querySelector('.thx-name-other');
+    if(otherInput) otherInput.style.display = sel.value === '__other__' ? 'block' : 'none';
+  });
+}
+
+function updateStamp(){
+  const name = $('name').value || '';
+  $('stamp').textContent = name.slice(0, 2) || '－';
+}
+
+function renderMemberRows(){
+  const wrap = $('memberList');
+  wrap.innerHTML = '';
+  members.forEach((m, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.idx = idx;
+    if(idx > 0) row.style.marginTop = '8px';
+    row.innerHTML = `
+      <span class="drag-handle" style="cursor:grab;color:var(--ink-soft);font-size:16px;padding:0 2px;touch-action:none;flex:none;">⋮⋮</span>
+      <input type="text" class="member-emoji" value="${escapeHtml(m.emoji)}" placeholder="絵文字" style="width:52px;flex:none;">
+      <input type="text" class="member-name grow" value="${escapeHtml(m.name)}" placeholder="名前">
+      <button class="rm" type="button">削除</button>`;
+    row.querySelector('.member-emoji').addEventListener('input', e=>{ members[idx].emoji = e.target.value; scheduleMemberSave(); });
+    row.querySelector('.member-emoji').addEventListener('blur', ()=>{ refreshNameSelect(); refreshAllThanksSelects(); });
+    row.querySelector('.member-name').addEventListener('input', e=>{ members[idx].name = e.target.value; scheduleMemberSave(); });
+    row.querySelector('.member-name').addEventListener('blur', ()=>{ refreshNameSelect(); refreshAllThanksSelects(); });
+    row.querySelector('.rm').addEventListener('click', ()=>{
+      members.splice(idx, 1);
+      renderMemberRows();
+      refreshNameSelect();
+      refreshAllThanksSelects();
+      saveMembers();
+    });
+    wrap.appendChild(row);
+  });
+  initMemberSortable();
+}
+
+let memberSortable = null;
+function initMemberSortable(){
+  if(memberSortable){ memberSortable.destroy(); memberSortable = null; }
+  if(typeof Sortable === 'undefined') return;
+  memberSortable = Sortable.create($('memberList'), {
+    handle: '.drag-handle',
+    animation: 150,
+    onEnd: function(evt){
+      if(evt.oldIndex === evt.newIndex) return;
+      const moved = members.splice(evt.oldIndex, 1)[0];
+      members.splice(evt.newIndex, 0, moved);
+      renderMemberRows();
+      refreshNameSelect();
+      refreshAllThanksSelects();
+      saveMembers();
+    }
+  });
+}
+
+let memberSaveTimer = null;
+function scheduleMemberSave(){
+  clearTimeout(memberSaveTimer);
+  memberSaveTimer = setTimeout(saveMembers, 500);
+}
+async function saveMembers(){
+  try{ await storage.set('members', JSON.stringify(members), true); }catch(e){}
+}
+
+$('addMember').addEventListener('click', ()=>{
+  members.push({emoji:'', name:''});
+  renderMemberRows();
+});
+
+function taskRow(task, hours){
+  taskSeq++;
+  const id = 't'+taskSeq;
+  const div = document.createElement('div');
+  div.className = 'task-item';
+  div.dataset.id = id;
+  div.innerHTML = `
+    <div class="row">
+      <div class="grow">
+        <label>業務内容</label>
+        <input type="text" class="task-name" value="${task||''}" placeholder="レシピ動画編集&#38;アップ">
+      </div>
+      <div class="hrs">
+        <label>時間</label>
+        <input type="number" class="task-hrs" step="0.25" min="0" value="${hours!=null?hours:''}" placeholder="1.5">
+      </div>
+      <button class="rm" type="button" onclick="this.closest('.task-item').remove(); updateTotal(); scheduleDraftSave();">削除</button>
+    </div>`;
+  $('tasks').appendChild(div);
+  div.querySelector('.task-hrs').addEventListener('input', updateTotal);
+}
+
+function updateTotal(){
+  const hrs = Array.from(document.querySelectorAll('.task-hrs')).map(i=>parseFloat(i.value)||0);
+  const sum = hrs.reduce((a,b)=>a+b,0);
+  $('taskTotal').textContent = `合計 ${Math.round(sum*100)/100} 時間`;
+}
+
+// 業務・コメント・お礼は「下書き」としてこの端末だけに保存（他の人には見えません）
+let draftTimer = null;
+function scheduleDraftSave(){
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 500);
+}
+
+function collectDraft(){
+  const tasks = Array.from(document.querySelectorAll('#tasks .task-item')).map(el=>({
+    t: el.querySelector('.task-name').value,
+    h: el.querySelector('.task-hrs').value
+  }));
+  const thanks = Array.from(document.querySelectorAll('#thanksList .task-item')).map(el=>{
+    const selVal = el.querySelector('.thx-select').value;
+    const name = selVal === '__other__' ? '__other__:' + el.querySelector('.thx-name-other').value : selVal;
+    return { name, msg: el.querySelector('.thx-msg').value };
+  });
+  return { tasks, comment: $('comment').value, thanks };
+}
+
+async function saveDraft(){
+  try{ await storage.set('draft', JSON.stringify(collectDraft()), false); }catch(e){}
+}
+
+function applyDraft(draft){
+  $('tasks').innerHTML = '';
+  if(draft.tasks && draft.tasks.length){
+    draft.tasks.forEach(x => taskRow(x.t, x.h));
+  } else {
+    taskRow();
+  }
+  $('comment').value = draft.comment || '';
+  $('thanksList').innerHTML = '';
+  (draft.thanks || []).forEach(x=>{
+    if(x.name && x.name.startsWith('__other__:')){
+      thanksRow(x.name.slice('__other__:'.length), x.msg);
+    } else {
+      thanksRow(x.name, x.msg);
+    }
+  });
+  updateTotal();
+}
+
+async function loadDraft(){
+  try{
+    const d = await storage.get('draft', false);
+    if(d && d.value){
+      applyDraft(JSON.parse(d.value));
+      return;
+    }
+  }catch(e){}
+  taskRow();
+}
+
+function thanksRow(name, message){
+  thanksSeq++;
+  const id = 'k'+thanksSeq;
+  const div = document.createElement('div');
+  div.className = 'task-item';
+  div.dataset.id = id;
+  div.innerHTML = `
+    <div class="row">
+      <div class="grow">
+        <label>宛先</label>
+        <select class="thx-select">${thanksOptionsHTML()}</select>
+      </div>
+      <button class="rm" type="button" onclick="this.closest('.task-item').remove(); scheduleDraftSave();">削除</button>
+    </div>
+    <input type="text" class="thx-name-other" placeholder="宛名を入力" style="display:none;margin-top:6px;">
+    <label>メッセージ</label>
+    <textarea class="thx-msg" placeholder="フォローありがとうございます。" style="min-height:44px;">${message||''}</textarea>`;
+  const sel = div.querySelector('.thx-select');
+  const otherInput = div.querySelector('.thx-name-other');
+  const presetValues = Array.from(sel.options).map(o=>o.value);
+  if(name && presetValues.includes(name)){
+    sel.value = name;
+  } else if(name){
+    sel.value = '__other__';
+    otherInput.style.display = 'block';
+    otherInput.value = name;
+  }
+  sel.addEventListener('change', ()=>{
+    otherInput.style.display = sel.value === '__other__' ? 'block' : 'none';
+  });
+  $('thanksList').appendChild(div);
+}
+
+$('addTask').addEventListener('click', ()=>{ taskRow(); scheduleDraftSave(); });
+$('addThanks').addEventListener('click', ()=>{ thanksRow(); scheduleDraftSave(); });
+
+// 入力のたびに下書き保存（本人の端末のみ）
+$('tasks').addEventListener('input', scheduleDraftSave);
+$('thanksList').addEventListener('input', scheduleDraftSave);
+$('thanksList').addEventListener('change', scheduleDraftSave);
+$('comment').addEventListener('input', scheduleDraftSave);
+
+$('clearBtnTop').addEventListener('click', ()=>{
+  $('clearOverlay').style.display = 'flex';
+});
+$('clearCancel').addEventListener('click', ()=>{
+  $('clearOverlay').style.display = 'none';
+});
+$('clearConfirm').addEventListener('click', ()=>{
+  $('clearOverlay').style.display = 'none';
+  $('tasks').innerHTML = '';
+  taskRow();
+  $('comment').value = '';
+  $('thanksList').innerHTML = '';
+  updateTotal();
+  $('outWrap').style.display = 'none';
+  saveDraft();
+});
+
+function monthKey(y,m){ return `${y}-${String(m).padStart(2,'0')}`; }
+
+function populateMonthSelect(selected){
+  const sel = $('goalsMonth');
+  sel.innerHTML = '';
+  const now = new Date();
+  const startOffset = -2, endOffset = 11;
+  const keys = [];
+  for(let off = startOffset; off <= endOffset; off++){
+    const d = new Date(now.getFullYear(), now.getMonth() + off, 1);
+    const key = monthKey(d.getFullYear(), d.getMonth()+1);
+    keys.push(key);
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `${d.getFullYear()}年${d.getMonth()+1}月`;
+    sel.appendChild(opt);
+  }
+  if(selected && keys.includes(selected)){
+    sel.value = selected;
+  } else {
+    sel.value = monthKey(now.getFullYear(), now.getMonth()+1);
+  }
+}
+
+let goalsMap = {};
+
+async function loadGoalsForMonth(key){
+  $('goals').value = goalsMap[key] || '';
+}
+
+async function loadState(){
+  $('date').value = todayISO();
+
+  try{
+    const mem = await storage.get('members', true);
+    members = (mem && mem.value) ? JSON.parse(mem.value) : defaultMembers();
+    if(!members.length) members = defaultMembers();
+  }catch(e){ members = defaultMembers(); }
+  renderMemberRows();
+  refreshNameSelect();
+
+  let lastName = '';
+  try{
+    const p = await storage.get('last-name');
+    if(p && p.value){ lastName = p.value; }
+  }catch(e){}
+  if(lastName && members.some(m=>m.name === lastName)){ $('name').value = lastName; }
+  updateStamp();
+  $('name').addEventListener('change', updateStamp);
+
+  try{
+    const g = await storage.get('goals-map', true);
+    goalsMap = (g && g.value) ? JSON.parse(g.value) : {};
+  }catch(e){ goalsMap = {}; }
+
+  let lastMonth = null;
+  try{
+    const lm = await storage.get('last-month');
+    if(lm && lm.value){ lastMonth = lm.value; }
+  }catch(e){}
+
+  populateMonthSelect(lastMonth);
+
+  const nowKey = monthKey(new Date().getFullYear(), new Date().getMonth()+1);
+  if(!goalsMap[nowKey]){
+    goalsMap[nowKey] = '・秋冬グランドに向けての準備\n・次回フェア準備\n・新体制の安定運営';
+    try{ await storage.set('goals-map', JSON.stringify(goalsMap), true); }catch(e){}
+  }
+
+  await loadGoalsForMonth($('goalsMonth').value);
+
+  $('goalsMonth').addEventListener('change', async ()=>{
+    // 切り替え前に編集中の内容を保存
+    await persistGoalsMap();
+    await loadGoalsForMonth($('goalsMonth').value);
+  });
+
+  if(!document.querySelectorAll('.task-item').length){ await loadDraft(); }
+}
+
+async function persistGoalsMap(){
+  const key = $('goalsMonth').value;
+  goalsMap[key] = $('goals').value;
+  try{
+    await storage.set('goals-map', JSON.stringify(goalsMap), true);
+    await storage.set('last-month', key);
+  }catch(e){}
+}
+
+async function saveState(){
+  try{
+    await storage.set('last-name', $('name').value);
+  }catch(e){}
+  await persistGoalsMap();
+  await saveDraft();
+}
+
+function buildReport(){
+  const dateVal = $('date').value ? new Date($('date').value+'T00:00:00') : new Date();
+  const md = `${dateVal.getMonth()+1}/${dateVal.getDate()}（${weekdayJP(dateVal)}）`;
+  const name = $('name').value.trim() || '島田';
+
+  const taskEls = Array.from(document.querySelectorAll('#tasks .task-item'));
+  const tasks = taskEls.map(el=>{
+    const t = el.querySelector('.task-name').value.trim();
+    const h = el.querySelector('.task-hrs').value.trim();
+    return {t,h};
+  }).filter(x=>x.t);
+
+  if(tasks.length === 0){
+    $('buildErr').style.display = 'block';
+    return null;
+  }
+  $('buildErr').style.display = 'none';
+
+  let goalsText = $('goals').value.trim();
+  const goalLines = goalsText.split('\n').map(l=>l.trim()).filter(Boolean)
+    .map(l => l.startsWith('・') ? l : '・'+l);
+
+  const taskLines = tasks.map(x => x.h ? `${x.t}（${x.h}）` : x.t);
+
+  const comment = $('comment').value.trim();
+
+  const thanksEls = Array.from(document.querySelectorAll('#thanksList .task-item'));
+  const thanksBlocks = thanksEls.map(el=>{
+    const selVal = el.querySelector('.thx-select').value;
+    const n = selVal === '__other__' ? el.querySelector('.thx-name-other').value.trim() : selVal;
+    const m = el.querySelector('.thx-msg').value.trim();
+    if(!n && !m) return null;
+    return `${n}\n${m}`;
+  }).filter(Boolean);
+
+  const sep = '────────────────';
+
+  let out = '';
+  out += `【所属】メニュー開発課　${name}\n`;
+  out += `${md} \n`;
+  out += `①進行中の案件\n`;
+  out += `★今月の目標数値と進捗：\n`;
+  out += goalLines.join('\n');
+  out += `\n\n◆本日の業務\n`;
+  out += taskLines.join('\n');
+  out += `\n②今日のコメント \n`;
+  out += `${comment}\n`;
+  if(thanksBlocks.length){
+    out += `${sep}\n`;
+    out += thanksBlocks.join('\n\n');
+    out += `\n${sep}`;
+  }
+  return out;
+}
+
+$('buildBtn').addEventListener('click', async ()=>{
+  const text = buildReport();
+  if(text === null) return;
+  $('out').textContent = text;
+  $('outWrap').style.display = 'block';
+  $('copyBtn').textContent = 'コピー';
+  $('copyBtn').classList.remove('copied');
+  await saveState();
+  $('outWrap').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+$('copyBtn').addEventListener('click', async ()=>{
+  const text = $('out').textContent;
+  try{
+    await navigator.clipboard.writeText(text);
+    $('copyBtn').textContent = 'コピーしました';
+    $('copyBtn').classList.add('copied');
+    setTimeout(()=>{ $('copyBtn').textContent='コピー'; $('copyBtn').classList.remove('copied'); }, 1800);
+  }catch(e){
+    $('copyBtn').textContent = 'コピー失敗';
+  }
+});
+
+$('lineBtn').addEventListener('click', ()=>{
+  const text = $('out').textContent;
+  const url = 'https://line.me/R/msg/text/?' + encodeURIComponent(text);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>{
+    $('lineHint').textContent = 'うまく開かない場合は、上の「コピー」ボタンで文章をコピーし、LINEアプリを開いてグループに直接貼り付けてください。';
+  }, 1200);
+});
+
+loadState();
+updateTotal();
+</script>
+</body>
+</html>
